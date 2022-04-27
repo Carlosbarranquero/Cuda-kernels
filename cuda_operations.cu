@@ -25,6 +25,8 @@ void convolve_kernel(float* input_dev,float* kernel_dev, float* result_dev,const
     int col = blockIdx.y * blockDim.y + threadIdx.y;
 
     int thread_id = row*result_rows_number + col; // col major
+
+    int offset = (input_dim - result_rows_number) * (thread_id/result_rows_number);
     
     float tmp_result = 0.0;
 
@@ -32,7 +34,7 @@ void convolve_kernel(float* input_dev,float* kernel_dev, float* result_dev,const
     {
         for(int j=0; j<kernel_dim; j++)
         {
-            tmp_result += input_dev[thread_id + i*input_dim + j] * kernel_dev[i*kernel_dim + j];
+            tmp_result += input_dev[thread_id + offset + i*input_dim + j] * kernel_dev[i*kernel_dim + j];
         }
     }
     result_dev[thread_id] = tmp_result;
@@ -44,12 +46,11 @@ int main()
     // convolution between inputs and kernels
     cout<<"Hello kernels"<<endl;
 
-    const int input_rows_number = 4;
-    const int input_cols_number = 4;
+    const int input_rows_number = 5;
+    const int input_cols_number = 5;
 
-    // @todo  kernel_rows_number kernel_cols_number different values 
-    const int kernel_rows_number = 2; 
-    const int kernel_cols_number = 2;
+    const int kernel_rows_number = 3; 
+    const int kernel_cols_number = 3;
 
     const int result_rows_number = (input_rows_number - kernel_rows_number + 1);
     const int result_cols_number = (input_cols_number - kernel_cols_number + 1);
