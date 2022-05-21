@@ -220,14 +220,10 @@ int main()
         time(&beginning_time);
         float elapsed_time = 0;
 
-        
         convolve_kernel_3d<<<blocksPerGrid, threadsPerBlock>>>(input_dev, kernel_dev, result_dev, result_rows_number, result_cols_number, input_rows_number, kernel_rows_number, channels);
-        
         
         if(cudaMemcpy(result_host, result_dev, result_size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
             cout << "Cuda matrix memcpy error" << endl;
-
-        cout<<"end"<<endl;
 
         time(&current_time);
         elapsed_time = difftime(current_time, beginning_time);
@@ -244,12 +240,12 @@ int main()
         cout<<""<<endl;
         cout<<"<-----------------Test dot----------------->"<<endl;
 
-        const int A_rows_number = 30;
-        const int A_cols_number = 30;
+        const int A_rows_number = 1000;
+        const int A_cols_number = 1000;
         const int A_size = A_rows_number*A_cols_number;
 
-        const int B_rows_number = 20;
-        const int B_cols_number = 20;
+        const int B_rows_number = 1000;
+        const int B_cols_number = 1000;
         const int B_size = B_rows_number*B_cols_number;
 
         const int C_rows_number = A_rows_number;
@@ -324,13 +320,25 @@ int main()
         dim3 threadsPerBlock_dot(threads, threads);
         dim3 blocksPerGrid_dot(blocks, blocks);
 
-        dot_kernel<<<blocksPerGrid_dot, threadsPerBlock_dot>>>(A_dev, B_dev, C_dev, B_rows_number, C_rows_number);
+        time_t beginning_time, current_time;
+        time(&beginning_time);
+        float elapsed_time = 0;
+
+        for (int i=0;i<2;i++)
+        {
+            dot_kernel<<<blocksPerGrid_dot, threadsPerBlock_dot>>>(A_dev, B_dev, C_dev, B_rows_number, C_rows_number);
+        }
 
         if(cudaMemcpy(C_host, C_dev, C_size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
             cout << "C memcpy error" << endl;
 
+        time(&current_time);
+        elapsed_time = difftime(current_time, beginning_time);
+
+        cout<<"elapsed_time:"<< elapsed_time<<endl;
+
         cout<<""<<endl;
             
-        print_host(C_host, C_size, C_rows_number);
+        // print_host(C_host, C_size, C_rows_number);
     }
 }

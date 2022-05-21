@@ -8,12 +8,15 @@ void dot_kernel(float* A, float* B, float* C, const int B_rows_number, const int
 
     float tmpSum = 0;
 
-    for(int i=0; i<B_rows_number; i++)
+    if(thread_id < B_rows_number*C_rows_number)
     {
-        tmpSum += A[thread_id%C_rows_number + i*C_rows_number] * B[thread_id/C_rows_number*B_rows_number + i];
-    }
+        for(int i=0; i<B_rows_number; i++)
+        {
+            tmpSum += A[thread_id%C_rows_number + i*C_rows_number] * B[thread_id/C_rows_number*B_rows_number + i];
+        }
 
-    C[thread_id] = tmpSum;    
+        C[thread_id] = tmpSum;    
+    }
 }
 
 
