@@ -5,4 +5,6 @@ Images are treated as tensors whose order are: rows, columns, channels, and batc
 ## Operations implemented
 
 - Convolve 2d
+- Convolve 3d
 - Dot
+- Softmax
