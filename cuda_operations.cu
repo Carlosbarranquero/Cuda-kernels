@@ -78,3 +78,25 @@ void convolve_kernel_3d(const float* input_dev, const float* kernel_dev, float* 
     }
 
 }
+
+__global__
+
+void softmax_kernel(int n, int rows_number, float* inputs, float* outputs)
+
+{
+    const int id_thread = blockIdx.x*blockDim.x + threadIdx.x;
+    const int columns_number = n/rows_number;
+
+    if(id_thread < rows_number*columns_number) 
+    {
+        float sum = 0;
+
+        for(int j = 0; j < columns_number; j++)
+        {
+            sum += inputs[id_thread%rows_number + rows_number*j];
+        }
+
+        outputs[id_thread] = inputs[id_thread]/sum;
+    }
+
+}

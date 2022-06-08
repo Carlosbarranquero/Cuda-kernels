@@ -28,11 +28,12 @@ int main()
     cout << "1. Convolve_2d"<<endl;
     cout << "2. Convolve_3d"<<endl;
     cout << "3. Dot"<<endl;
-    cout << "4. All"<<endl;
+    cout << "4. Softmax"<<endl;
+    cout << "5. All"<<endl;
     cin >> test;
 
 
-    if(test == "1" || test == "4")
+    if(test == "1" || test == "5")
     {    
     //  Test convolve 
         cout<<"<-----------------Test convolve----------------->"<<endl;
@@ -127,7 +128,7 @@ int main()
             
         print_host(result_host, result_size, result_rows_number);
     }
-    else if(test == "2" || test == "4")
+    else if(test == "2" || test == "5")
     {
         //  Test convolve 3d
 
@@ -233,7 +234,7 @@ int main()
         print_host(result_host, result_size, result_rows_number);
         
     }
-    else if(test == "3" || test == "4")
+    else if(test == "3" || test == "5")
     {
         //  Test dot A*B  = C
 
@@ -340,5 +341,79 @@ int main()
         cout<<""<<endl;
             
         // print_host(C_host, C_size, C_rows_number);
+    }
+    else if(test == "4" || test == "5")
+    {
+        cout<<""<<endl;
+        cout<<"<-----------------Test Softmax----------------->"<<endl;
+        const int rows_number = 2;
+        const int cols_number = 2;
+        const int size = rows_number*cols_number;
+        
+        //host 
+
+        float* A_host = nullptr;
+        float* B_host = nullptr;
+        
+        //Malloc
+
+        if(cudaMallocHost(&A_host, size*sizeof(float)) != cudaSuccess)
+            cout << "A_host allocation error" << endl;
+        if(cudaMallocHost(&B_host, size*sizeof(float)) != cudaSuccess)
+            cout << "B_host allocation error" << endl;
+
+        for (int i=0; i< size; i++)
+            *(A_host + i) = rand() % 10;
+
+        for (int i=0; i< size; i++)
+            *(B_host + i) = 0;
+        
+        //Print
+
+        cout<<"A host"<<endl;
+        print_host(A_host, size, rows_number);
+        cout<<""<<endl;
+        cout<<"B host "<<endl;
+        print_host(B_host, size, rows_number);
+        cout<<""<<endl;
+
+        //dev
+
+        float* A_dev = nullptr;
+        float* B_dev = nullptr;
+        
+        //Malloc
+
+        if(cudaMalloc(&A_dev, size*sizeof(float)) != cudaSuccess)
+            cout << "Cuda malloc error" << endl;
+        if(cudaMalloc(&B_dev, size*sizeof(float)) != cudaSuccess)
+            cout << "Cuda malloc error" << endl;
+
+        //Cpy values H -> D
+
+        if(cudaMemcpy(A_dev, A_host, size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
+            cout << "A_dev copy error" << endl;
+        if(cudaMemcpy(B_dev, B_host, size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
+            cout << "B_dev copy error" << endl;
+
+        int threads = 32; // 64
+        int blocks = (size + threads - 1 ) / threads;
+
+        cout<<"threadsPerBlock: "<<threads<<endl;
+        cout<<"blocksPerGrid: "<<blocks<<endl;
+
+        dim3 threadsPerBlock_dot(threads, threads);
+        dim3 blocksPerGrid_dot(blocks, blocks);
+
+        // for (int i=0;i<100;i++)
+        // {
+           softmax_kernel<<<blocks, threads>>>(size,rows_number,A_dev,B_dev);
+        // }
+
+        if(cudaMemcpy(B_host, B_dev, size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
+            cout << "C memcpy error" << endl;
+
+        print_host(B_host, size, rows_number);
+
     }
 }
