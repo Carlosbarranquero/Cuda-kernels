@@ -18,6 +18,65 @@ void print_host(float* vector, const int& size, const int& rows)
     }
 }
 
+float* build_host_tensor(const int dims[], const float& values, const bool& randomize)
+{
+    const int rows_number = dims[0];
+    const int cols_number = dims[1];
+    const int channels = dims[2];
+
+    const int size = rows_number*cols_number*channels;
+    
+    // Initialize
+    float* A_host = nullptr;
+    
+    // Malloc
+    if(cudaMallocHost(&A_host, size*sizeof(float)) != cudaSuccess)
+        cout << "A_host allocation error" << endl;
+    
+    // Set Values    
+    for (int i=0; i< size; i++) 
+        *(A_host + i) = randomize ? rand() % 10: values;
+    
+    // Print 
+    bool is_printed = randomize ? true: false;
+
+    if(is_printed)
+    {
+        cout<<"Tensor info"<< endl;
+        cout<<"Rows_number: "<< rows_number<<endl;
+        cout<<"Cols_number: "<< cols_number<<endl;
+        cout<<"Channels_number: "<< channels<<endl;
+        cout<<"---"<<endl;
+        print_host(A_host, size, rows_number);
+    }
+
+    return A_host;
+}
+
+
+float* copy_host_tensor_to_dev(const int dims[], float* A_host)
+{
+    const int rows_number = dims[0];
+    const int cols_number = dims[1];
+    const int channels = dims[2];
+
+    const int size = rows_number*cols_number*channels;
+
+    // Initialize
+    float* A_dev = nullptr;
+
+    // Malloc
+    if(cudaMalloc(&A_dev, size*sizeof(float)) != cudaSuccess)
+        cout << "Cuda malloc error" << endl;
+
+    //Cpy values H -> D
+    if(cudaMemcpy(A_dev, A_host, size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
+        cout << "A_dev copy error" << endl;
+
+    return A_dev;
+}
+
+
 int main()
 {
 
@@ -25,93 +84,40 @@ int main()
 
     cout << "Select test:"<<endl;
 
+    cout << "0. All"<<endl;
     cout << "1. Convolve_2d"<<endl;
     cout << "2. Convolve_3d"<<endl;
     cout << "3. Dot"<<endl;
     cout << "4. Softmax"<<endl;
-    cout << "5. All"<<endl;
+    
     cin >> test;
 
-
-    if(test == "1" || test == "5")
+    if(test == "1" || test == "0")
     {    
-    //  Test convolve 
-        cout<<"<-----------------Test convolve----------------->"<<endl;
+        cout<<"<-----------------Test convolve 2d----------------->"<<endl;
 
-        const int input_rows_number = 4;
-        const int input_cols_number = 4;
+        const int input_dims[] = {4, 4, 1}; // rows, cols, channels
+        const int kernel_dims[] = {2, 2, 1}; // rows, cols, channels
+        const int results_dims[] = {input_dims[0] - kernel_dims[0] + 1,
+                                    input_dims[1] - kernel_dims[1] + 1,
+                                    input_dims[2]};
 
-        const int kernel_rows_number = 2; 
-        const int kernel_cols_number = 2;
+        const float initial_value = 0.0;
 
-        const int result_rows_number = (input_rows_number - kernel_rows_number + 1);
-        const int result_cols_number = (input_cols_number - kernel_cols_number + 1);
-
-        const size_t input_size = input_cols_number*input_rows_number;
-        const size_t kernel_size = kernel_cols_number*kernel_rows_number;
-        const size_t result_size = result_rows_number*result_cols_number;
-
-        //host 
-
-        float* input_host = nullptr;
-        float* kernel_host = nullptr;
-        float* result_host = nullptr;
-
-        //Malloc
-
-        if(cudaMallocHost(&input_host, input_size*sizeof(float)) != cudaSuccess)
-            cout << "input_host allocation error" << endl;
-        if(cudaMallocHost(&kernel_host, kernel_size*sizeof(float)) != cudaSuccess)
-            cout << "kernel_host allocation error" << endl;
-        if(cudaMallocHost(&result_host, result_size*sizeof(float)) != cudaSuccess)
-            cout << "result_host allocation error" << endl;
-
-        //Set values
-
-        for (int i=0; i< input_size; i++)
-            *(input_host + i) = i;
-
-        for (int i=0; i< kernel_size; i++)
-            *(kernel_host + i) = 2.0;
-
-        for (int i=0; i< result_size; i++)
-            *(result_host + i) = 0.0;
-
-        //Print
-
-        cout<<"input host"<<endl;
-        print_host(input_host, input_size, input_rows_number);
-        cout<<""<<endl;
-        cout<<"kernel host "<<endl;
-        print_host(kernel_host, kernel_size, kernel_rows_number);
-        cout<<""<<endl;
+        // Host
+        float* input_host = build_host_tensor(input_dims, initial_value, true);
+        float* kernel_host = build_host_tensor(kernel_dims, initial_value, true);
+        float* result_host = build_host_tensor(results_dims, initial_value, false);
         
-        //dev
+        // Dev
+        float* input_dev = copy_host_tensor_to_dev(input_dims, input_host);
+        float* kernel_dev = copy_host_tensor_to_dev(kernel_dims, kernel_host);
+        float* result_dev = copy_host_tensor_to_dev(results_dims, result_host);
 
-        float* input_dev = nullptr;
-        float* kernel_dev = nullptr;
-        float* result_dev = nullptr;
-
-        //Malloc
-
-        if(cudaMalloc(&input_dev, input_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-        if(cudaMalloc(&kernel_dev, kernel_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-        if(cudaMalloc(&result_dev, result_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-
-        //Cpy values H -> D
-
-        if(cudaMemcpy(input_dev, input_host, input_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "input_dev error" << endl;
-        if(cudaMemcpy(kernel_dev, kernel_host, kernel_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "kernel_dev error" << endl;
-        if(cudaMemcpy(result_dev, result_host, result_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "result_dev error" << endl;
-
-        int threads = 32; // 64
-        int blocks = (result_size + threads - 1 ) / threads;
+        // Grid 
+        const int result_size = results_dims[0]*results_dims[1]*results_dims[2];
+        const int threads = 32; // 64
+        const int blocks = (result_size + threads - 1) / threads;
 
         cout<<"threadsPerBlock: "<<threads<<endl;
         cout<<"blocksPerGrid: "<<blocks<<endl;
@@ -119,97 +125,43 @@ int main()
         dim3 threadsPerBlock(threads, threads);
         dim3 blocksPerGrid(blocks, blocks);
 
-        convolve_kernel<<<blocksPerGrid, threadsPerBlock>>>(input_dev, kernel_dev, result_dev, result_rows_number, result_cols_number, input_rows_number, kernel_rows_number);
+        convolve_kernel<<<blocksPerGrid, threadsPerBlock>>>(input_dev, kernel_dev, result_dev, results_dims[0], results_dims[1], input_dims[0], kernel_dims[0]);
         
         if(cudaMemcpy(result_host, result_dev, result_size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
             cout << "Cuda matrix memcpy error" << endl;
 
         cout<<""<<endl;
-            
-        print_host(result_host, result_size, result_rows_number);
-    }
-    else if(test == "2" || test == "5")
-    {
-        //  Test convolve 3d
 
+        cout<<"Results"<<endl;    
+        print_host(result_host, result_size, results_dims[0]);
+
+    }
+    else if(test == "2" || test == "0")
+    {
         cout<<"<-----------------Test convolve 3d----------------->"<<endl;
 
-        const int input_rows_number = 4;
-        const int input_cols_number = 4;
+        const int input_dims[] = {4, 4, 3}; // rows, cols, channels
+        const int kernel_dims[] = {2, 2, 3}; // rows, cols, channels
+        const int results_dims[] = {input_dims[0] - kernel_dims[0] + 1,
+                                    input_dims[1] - kernel_dims[1] + 1,
+                                    1};
 
-        const int channels = 3;
+        const float initial_value = 0.0;
 
-        const int kernel_rows_number = 2; 
-        const int kernel_cols_number = 2;
+        // Host
+        float* input_host = build_host_tensor(input_dims, initial_value, true);
+        float* kernel_host = build_host_tensor(kernel_dims, initial_value, true);
+        float* result_host = build_host_tensor(results_dims, initial_value, false);
+        
+        // Dev
+        float* input_dev = copy_host_tensor_to_dev(input_dims, input_host);
+        float* kernel_dev = copy_host_tensor_to_dev(kernel_dims, kernel_host);
+        float* result_dev = copy_host_tensor_to_dev(results_dims, result_host);
 
-        const int result_rows_number = (input_rows_number - kernel_rows_number + 1);
-        const int result_cols_number = (input_cols_number - kernel_cols_number + 1);
-
-        const size_t input_size = input_cols_number*input_rows_number*channels;
-        const size_t kernel_size = kernel_cols_number*kernel_rows_number*channels;
-        const size_t result_size = result_rows_number*result_cols_number;
-
-        //host 
-
-        float* input_host = nullptr;
-        float* kernel_host = nullptr;
-        float* result_host = nullptr;
-
-        //Malloc
-
-        if(cudaMallocHost(&input_host, input_size*sizeof(float)) != cudaSuccess)
-            cout << "input_host allocation error" << endl;
-        if(cudaMallocHost(&kernel_host, kernel_size*sizeof(float)) != cudaSuccess)
-            cout << "kernel_host allocation error" << endl;
-        if(cudaMallocHost(&result_host, result_size*sizeof(float)) != cudaSuccess)
-            cout << "result_host allocation error" << endl;
-
-        //Set values
-
-        for (int i=0; i< input_size; i++)
-            *(input_host + i) = 1.;
-
-        for (int i=0; i< kernel_size; i++)
-            *(kernel_host + i) = 2.;
-
-        for (int i=0; i< result_size; i++)
-            *(result_host + i) = 0.0;
-
-        //Print
-
-        cout<<"input host"<<endl;
-        print_host(input_host, input_size, input_rows_number);
-        cout<<""<<endl;
-        cout<<"kernel host "<<endl;
-        print_host(kernel_host, kernel_size, kernel_rows_number);
-        cout<<""<<endl;
-  
-        //dev
-
-        float* input_dev = nullptr;
-        float* kernel_dev = nullptr;
-        float* result_dev = nullptr;
-
-        //Malloc
-
-        if(cudaMalloc(&input_dev, input_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-        if(cudaMalloc(&kernel_dev, kernel_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-        if(cudaMalloc(&result_dev, result_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-
-        //Cpy values H -> D
-
-        if(cudaMemcpy(input_dev, input_host, input_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "input_dev error" << endl;
-        if(cudaMemcpy(kernel_dev, kernel_host, kernel_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "kernel_dev error" << endl;
-        if(cudaMemcpy(result_dev, result_host, result_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "result_dev error" << endl;
-
-        int threads = 32; // 64
-        int blocks = (result_size + threads - 1 ) / threads;
+        // Grid 
+        const int result_size = results_dims[0]*results_dims[1]*results_dims[2];
+        const int threads = 32; // 64
+        const int blocks = (result_size + threads - 1 ) / threads;
 
         cout<<"threadsPerBlock: "<<threads<<endl;
         cout<<"blocksPerGrid: "<<blocks<<endl;
@@ -221,7 +173,7 @@ int main()
         time(&beginning_time);
         float elapsed_time = 0;
 
-        convolve_kernel_3d<<<blocksPerGrid, threadsPerBlock>>>(input_dev, kernel_dev, result_dev, result_rows_number, result_cols_number, input_rows_number, kernel_rows_number, channels);
+        convolve_kernel_3d<<<blocksPerGrid, threadsPerBlock>>>(input_dev, kernel_dev, result_dev, results_dims[0], results_dims[1], input_dims[0], kernel_dims[0], input_dims[2]);
         
         if(cudaMemcpy(result_host, result_dev, result_size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
             cout << "Cuda matrix memcpy error" << endl;
@@ -230,190 +182,95 @@ int main()
         elapsed_time = difftime(current_time, beginning_time);
 
         cout<<"elapsed_time:"<< elapsed_time<<endl;
-            
-        print_host(result_host, result_size, result_rows_number);
-        
+
+        cout<<""<<endl;    
+        print_host(result_host, result_size, results_dims[0]);
+
     }
-    else if(test == "3" || test == "5")
+    else if(test == "3" || test == "0")
     {
-        //  Test dot A*B  = C
+        
+        cout<<"<-----------------Test dot A*B = C----------------->"<<endl;
 
-        cout<<""<<endl;
-        cout<<"<-----------------Test dot----------------->"<<endl;
+        // Host
+        const float initial_value_A = 1.0;
+        const int A_dims[] = {2, 2, 1}; // rows, cols, channels
+        float* A_host = build_host_tensor(A_dims, initial_value_A, true);
 
-        const int A_rows_number = 1000;
-        const int A_cols_number = 1000;
-        const int A_size = A_rows_number*A_cols_number;
+        const float initial_value_B = 2.0;
+        const int B_dims[] = {2, 2, 1}; // rows, cols, channels
+        float* B_host = build_host_tensor(B_dims, initial_value_B, true);
 
-        const int B_rows_number = 1000;
-        const int B_cols_number = 1000;
-        const int B_size = B_rows_number*B_cols_number;
+        const float initial_value_C = 0.0;
+        const int C_dims[] = {A_dims[0], B_dims[0], 1}; // rows, cols, channels
+        float* C_host = build_host_tensor(C_dims, initial_value_C, false);
 
-        const int C_rows_number = A_rows_number;
-        const int C_cols_number = B_cols_number;
-        const int C_size = C_rows_number*C_cols_number;
+        // Dev
+        float* A_dev = copy_host_tensor_to_dev(A_dims, A_host);
+        float* B_dev = copy_host_tensor_to_dev(B_dims, B_host);
+        float* C_dev = copy_host_tensor_to_dev(C_dims, C_host);
 
-        //host 
-
-        float* A_host = nullptr;
-        float* B_host = nullptr;
-        float* C_host = nullptr;
-
-        //Malloc
-
-        if(cudaMallocHost(&A_host, A_size*sizeof(float)) != cudaSuccess)
-            cout << "A_host allocation error" << endl;
-        if(cudaMallocHost(&B_host, B_size*sizeof(float)) != cudaSuccess)
-            cout << "B_host allocation error" << endl;
-        if(cudaMallocHost(&C_host, C_size*sizeof(float)) != cudaSuccess)
-            cout << "C_host allocation error" << endl;
-
-        //Set values
-
-        for (int i=0; i< A_size; i++)
-            *(A_host + i) = rand() % 10;
-
-        for (int i=0; i< B_size; i++)
-            *(B_host + i) = rand() % 10;
-
-        for (int i=0; i< C_size; i++)
-            *(C_host + i) = 0.0;
-
-        //Print
-
-        cout<<"A host"<<endl;
-        print_host(A_host, A_size, A_rows_number);
-        cout<<""<<endl;
-        cout<<"B host "<<endl;
-        print_host(B_host, B_size, B_rows_number);
-        cout<<""<<endl;
-
-        //dev
-
-        float* A_dev = nullptr;
-        float* B_dev = nullptr;
-        float* C_dev = nullptr;
-
-        //Malloc
-
-        if(cudaMalloc(&A_dev, A_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-        if(cudaMalloc(&B_dev, B_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-        if(cudaMalloc(&C_dev, C_size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-
-        //Cpy values H -> D
-
-        if(cudaMemcpy(A_dev, A_host, A_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "A_dev copy error" << endl;
-        if(cudaMemcpy(B_dev, B_host, B_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "B_dev copy error" << endl;
-        if(cudaMemcpy(C_dev, C_host, C_size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "C_dev copy error" << endl;
-
-        int threads = 32; // 64
-        int blocks = (C_size + threads - 1 ) / threads;
+        // Grid 
+        const int result_size = C_dims[0]*C_dims[1]*C_dims[2];
+        const int threads = 32; // 64
+        const int blocks = (result_size + threads - 1 ) / threads;
 
         cout<<"threadsPerBlock: "<<threads<<endl;
         cout<<"blocksPerGrid: "<<blocks<<endl;
 
-        dim3 threadsPerBlock_dot(threads, threads);
-        dim3 blocksPerGrid_dot(blocks, blocks);
+        dim3 threadsPerBlock(threads, threads);
+        dim3 blocksPerGrid(blocks, blocks);
 
         time_t beginning_time, current_time;
         time(&beginning_time);
         float elapsed_time = 0;
 
-        for (int i=0;i<2;i++)
-        {
-            dot_kernel<<<blocksPerGrid_dot, threadsPerBlock_dot>>>(A_dev, B_dev, C_dev, B_rows_number, C_rows_number);
-        }
-
-        if(cudaMemcpy(C_host, C_dev, C_size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
-            cout << "C memcpy error" << endl;
+        dot_kernel<<<blocksPerGrid, threadsPerBlock>>>(A_dev, B_dev, C_dev, B_dims[0], A_dims[0]);
+        
+        if(cudaMemcpy(C_host, C_dev, result_size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
+            cout << "Cuda matrix memcpy error" << endl;
 
         time(&current_time);
         elapsed_time = difftime(current_time, beginning_time);
 
         cout<<"elapsed_time:"<< elapsed_time<<endl;
 
-        cout<<""<<endl;
-            
-        // print_host(C_host, C_size, C_rows_number);
+        cout<<""<<endl; 
+        print_host(C_host, result_size, C_dims[0]);   
+
     }
-    else if(test == "4" || test == "5")
+    else if(test == "4" || test == "0")
     {
-        cout<<""<<endl;
         cout<<"<-----------------Test Softmax----------------->"<<endl;
-        const int rows_number = 2;
-        const int cols_number = 2;
-        const int size = rows_number*cols_number;
+
+        const int dims[] = {2, 2, 1}; // rows, cols, channels
+        const float initial_value = 0.0;
+
+        // Host
+        float* A_host = build_host_tensor(dims, initial_value, true);
+        float* B_host = build_host_tensor(dims, initial_value, false);
         
-        //host 
+        // Dev
+        float* A_dev = copy_host_tensor_to_dev(dims, A_host);
+        float* B_dev = copy_host_tensor_to_dev(dims, A_host);
 
-        float* A_host = nullptr;
-        float* B_host = nullptr;
-        
-        //Malloc
-
-        if(cudaMallocHost(&A_host, size*sizeof(float)) != cudaSuccess)
-            cout << "A_host allocation error" << endl;
-        if(cudaMallocHost(&B_host, size*sizeof(float)) != cudaSuccess)
-            cout << "B_host allocation error" << endl;
-
-        for (int i=0; i< size; i++)
-            *(A_host + i) = rand() % 10;
-
-        for (int i=0; i< size; i++)
-            *(B_host + i) = 0;
-        
-        //Print
-
-        cout<<"A host"<<endl;
-        print_host(A_host, size, rows_number);
-        cout<<""<<endl;
-        cout<<"B host "<<endl;
-        print_host(B_host, size, rows_number);
-        cout<<""<<endl;
-
-        //dev
-
-        float* A_dev = nullptr;
-        float* B_dev = nullptr;
-        
-        //Malloc
-
-        if(cudaMalloc(&A_dev, size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-        if(cudaMalloc(&B_dev, size*sizeof(float)) != cudaSuccess)
-            cout << "Cuda malloc error" << endl;
-
-        //Cpy values H -> D
-
-        if(cudaMemcpy(A_dev, A_host, size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "A_dev copy error" << endl;
-        if(cudaMemcpy(B_dev, B_host, size*sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess)
-            cout << "B_dev copy error" << endl;
-
+        // Grid
+        const int size = dims[0]*dims[1]*dims[2];
         int threads = 32; // 64
         int blocks = (size + threads - 1 ) / threads;
 
         cout<<"threadsPerBlock: "<<threads<<endl;
         cout<<"blocksPerGrid: "<<blocks<<endl;
 
-        dim3 threadsPerBlock_dot(threads, threads);
-        dim3 blocksPerGrid_dot(blocks, blocks);
+        dim3 threadsPerBlock(threads, threads);
+        dim3 blocksPerGrid(blocks, blocks);
 
-        // for (int i=0;i<100;i++)
-        // {
-           softmax_kernel<<<blocks, threads>>>(size,rows_number,A_dev,B_dev);
-        // }
+        softmax_kernel<<<blocksPerGrid, threadsPerBlock>>>(size, dims[0], A_dev, B_dev);
 
         if(cudaMemcpy(B_host, B_dev, size*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
             cout << "C memcpy error" << endl;
 
-        print_host(B_host, size, rows_number);
-
+        print_host(B_host, size, dims[0]);
     }
+
 }
